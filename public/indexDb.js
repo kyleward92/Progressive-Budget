@@ -23,3 +23,45 @@ request.onsuccess = function (event) {
 request.onerror = function (event) {
   console.log('There has been an error with retrieving your data: ' + request.error);
 };
+
+// saves the new record 
+function saveRecord(record) {
+    // create a transaction on the pending db with readwrite access
+    const transaction = db.transaction(['budget'], 'readwrite');
+    // access your pending object store
+    const budgetStore = transaction.objectStore('budget');
+    // add record to your store with add method.
+    budgetStore.add(record);
+  }
+  
+  // open a transaction on your pending db
+  function checkDatabase() {
+    const transaction = db.transaction(['budget'], 'readwrite');
+    const budgetStore = transaction.objectStore('budget');
+    const getRequest = budgetStore.getAll();
+  
+    getRequest.onsuccess = function () {
+      if (getRequest.result.length > 0) {
+        fetch('/api/transaction/bulk', {
+          method: 'POST',
+          body: JSON.stringify(getRequest.result),
+          headers: {
+            Accept: 'application/json, text/plain, */*',
+            'Content-Type': 'application/json'
+          }
+        })
+          .then(response => response.json())
+          .then(() => {
+            // if successful, open a transaction on your pending db
+            const transaction = db.transaction(['budget'], 'readwrite');
+            // access your pending object store
+            const budgetStore = transaction.objectStore('budget');
+            // clear all items in your store
+            budgetStore.clear();
+          });
+      }
+    };
+  }
+  
+  // listen for app coming back online
+  window.addEventListener('online', checkDatabase);
